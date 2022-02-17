@@ -1,6 +1,6 @@
 from paho.mqtt.client import Client, MQTTMessage
 
-from util import Mapping
+from util import Mapping, BYTE_ORDER
 
 
 def logConsole(message: str):
@@ -55,9 +55,11 @@ class MQTTHandler:
 
         logConsole(f"Trying to connect to MQTT Broker at '{host}:{port}' as '{username}'...")
 
+        # Create the client
         self.client = Client("Python_MQTT_Client", clean_session=True)
         self.client.username_pw_set(username, password)
 
+        # Add callbacks
         self.client.on_connect_fail = self.__onConnectFail
         self.client.on_connect = self.__onConnect
         self.client.on_disconnect = lambda _, __, reason: logConsole(f"Disconnected with reason '{reason}'!")
@@ -96,6 +98,7 @@ class MQTTHandler:
         :return: Nothing
         """
 
+        # Subscribe to every topic
         for mapping in self.mappings:
             self.client.subscribe(mapping.mqttTopic)
             logConsole(f"Subscribed to topic '{mapping.mqttTopic}'")
@@ -113,6 +116,7 @@ class MQTTHandler:
         :return: Nothing
         """
 
+        # Act according to the result code
         match resultCode:
             case 0:
                 logConsole(f"Successfully connected!")
@@ -130,6 +134,7 @@ class MQTTHandler:
         :return: Nothing.
         """
 
+        # Stop the loop and disconnect
         self.client.loop_stop()
         self.client.disconnect()
 
@@ -146,24 +151,34 @@ class MQTTHandler:
         """
 
         # Only forward message if it was sent by a different client
-        otherClientID = client.client_id.decode('utf-8')
-        if otherClientID != self.client.client_id.decode('utf-8'):
-            topic = message.topic
-            payload = message.payload.decode("utf-8")
+        try:
+            otherClientID = client.client_id.decode('utf-8')
+            if otherClientID != self.client.client_id.decode('utf-8'):
+                topic = message.topic
+                payload = message.payload.decode("utf-8")
 
-            logConsole(f"Client '{otherClientID}' (userdata: {userdata}) sent a message:")
-            print(f"{' ' * 8}- Topic: {topic}")
-            print(f"{' ' * 8}- Payload: {payload}")
-            try:
-                canID = [mapping.canID for mapping in self.mappings if mapping.mqttTopic == topic][0]
+                logConsole(f"Client '{otherClientID}' (userdata: {userdata}) sent a message:")
+                print(f"{' ' * 8}- Topic: {topic}")
+                print(f"{' ' * 8}- Payload: {payload}")
 
-                logConsole(f"This message will be forwarded to CAN-ID '{canID}'!")
+                try:
+                    # Get the corresponding canID
+                    canID = [mapping.canID for mapping in self.mappings if mapping.mqttTopic == topic][0]
 
-                self.sendToCan(canID, payload)
-            except IndexError:
-                logConsole(f"No CAN-ID for MQTT-Topic '{topic}' found!")
+                    try:
+                        # Convert the payload
+                        payload = int(payload).to_bytes(8, byteorder=BYTE_ORDER)
 
-    def publishMessage(self, topic: str, payload):
+                        logConsole(f"This message will be forwarded to CAN-ID '{canID}'!")
+                        self.sendToCan(canID, payload)
+                    except (OverflowError, ValueError) as e:
+                        logConsole(f"Something went wrong while converting the payload into a byte-array: {e}")
+                except IndexError:
+                    logConsole(f"No CAN-ID for MQTT-Topic '{topic}' found!")
+        except UnicodeDecodeError as e:
+            logConsole(f"Encountered an error while trying to convert the message data: {e}")
+
+    def publishMessage(self, topic: str, payload: int):
         """
         This method publishes a given message to the MQTT broker.
 

@@ -1,9 +1,7 @@
-from typing import Union
-
 from can import Message, Listener, Notifier
 from can.interface import Bus
 
-from util import Mapping, MAX_EXTENDED_CAN_ID, MAX_CAN_ID
+from util import Mapping, MAX_EXTENDED_CAN_ID, MAX_CAN_ID, BYTE_ORDER
 
 
 def logConsole(message: str):
@@ -65,7 +63,9 @@ class CANHandler:
             self.canBus = Bus(interface=interface, bustype=bustype, channel=channel, bitrate=bitrate,
                               receive_own_messages=receiveOwnMessages)
 
-        logConsole(f"CAN Bus created: {self.canBus.channel_info}")
+        logConsole(f"CAN Bus created: '{self.canBus.channel_info}'")
+
+        # Try to send and receive a message from the CAN
         logConsole("Trying whether message can be sent and received...")
         self.canBus.receive_own_messages = True
 
@@ -75,14 +75,17 @@ class CANHandler:
         receivedMessage = self.canBus.recv(5)
         if receivedMessage.arbitration_id == testMessage.arbitration_id and receivedMessage.data == testMessage.data:
             logConsole("Check successful!")
+
+            # Reset to original value
             self.canBus.receive_own_messages = receiveOwnMessages
 
             logConsole("Initializing Listener and Notifier!")
 
-            self.listener = Listener()
-            self.listener.on_message_received = self.messageReceived
+            # Create a listener for incoming messages
+            listener = Listener()
+            listener.on_message_received = self.messageReceived
 
-            self.notifier = Notifier(self.canBus, [self.listener], 0)
+            self.notifier = Notifier(self.canBus, [listener], 0)
 
             logConsole("CANHandler initialized!")
         else:
@@ -97,7 +100,11 @@ class CANHandler:
         :return: Nothing.
         """
 
-        self.notifier.stop()
+        try:
+            self.notifier.stop()
+        except AttributeError:
+            pass
+
         self.canBus.shutdown()
 
         logConsole("Stopped!")
@@ -111,11 +118,14 @@ class CANHandler:
         """
 
         canID = canMessage.arbitration_id
-        payload = sum(canMessage.data)
+
+        # Convert to int
+        payload = int.from_bytes(canMessage.data, byteorder=BYTE_ORDER)
 
         logConsole(f"Received CAN message with ID '{canID}' and data '{payload}' ({list(canMessage.data)})!")
 
         try:
+            # Get corresponding MQTT topic
             topic = [mapping.mqttTopic for mapping in self.mappings if canID == mapping.canID][0]
 
             logConsole(f"This message will be forwarded to MQTT-Topic '{topic}' (payload: {payload})!")

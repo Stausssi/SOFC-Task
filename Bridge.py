@@ -1,5 +1,4 @@
 from threading import Thread, Timer
-from typing import Union
 
 from CANHandler import CANHandler
 from MQTTHandler import MQTTHandler
@@ -87,6 +86,7 @@ class Bridge:
         """
 
         logConsole("Forwarding from MQTT to CAN.")
+
         self.canHandler.sendMessage(canID, payload)
 
     def sendMessageToMQTT(self, topic: str, payload):
@@ -99,4 +99,5 @@ class Bridge:
         """
 
         logConsole("Forwarding from CAN to MQTT.")
+
         self.mqttHandler.publishMessage(topic, payload)

@@ -2,6 +2,7 @@ import json
 
 MAX_CAN_ID = 2 ** 11 - 1
 MAX_EXTENDED_CAN_ID = 2 ** 29 - 1
+BYTE_ORDER = "little"
 
 
 def parseMappings(mappingFile: str = "mapping.json"):
@@ -22,6 +23,9 @@ def parseMappings(mappingFile: str = "mapping.json"):
             ]
     except FileNotFoundError as e:
         print(f"The given mapping file '{mappingFile}' doesn't exist! {e}")
+    except Exception as e:
+        print(f"An exception occurred while parsing the mapping file: {e}")
+        exit(1)
 
 
 class Mapping:

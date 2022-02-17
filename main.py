@@ -23,6 +23,7 @@ def main():
 
     args = parser.parse_args()
 
+    # Read the mappings from the file
     mappings = parseMappings(args.mappings)
 
     # Start the Bridge
