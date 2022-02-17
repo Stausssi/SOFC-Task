@@ -25,7 +25,8 @@ def parseMappings(mappingFile: str = "mapping.json"):
         print(f"The given mapping file '{mappingFile}' doesn't exist! {e}")
     except Exception as e:
         print(f"An exception occurred while parsing the mapping file: {e}")
-        exit(1)
+
+    exit(1)
 
 
 class Mapping:
@@ -50,8 +51,8 @@ class MQTTParams:
         """
         Creates a static data class.
 
-        :param host: The hostname or IP-address of the MQTT Broker
-        :param port: The port of the MQTT Broker
+        :param host: The __hostname or IP-address of the MQTT Broker
+        :param port: The __port of the MQTT Broker
         :param username: The name of the user to login as
         :param password: The password of the user to login as
         """
@@ -77,11 +78,11 @@ class MQTTParams:
 class CANParams:
     """Param container for the CANHandler class"""
 
-    def __init__(self, channel="", interface="", bustype="virtual", bitrate=500000):
+    def __init__(self, channel="Virtual CAN Bus", interface="virtual", bustype="virtual", bitrate=500000):
         """
         Creates a static data class.
 
-        :param channel: The channel of the CAN Bus. Not needed for a virtual CAN.
+        :param channel: The channel of the CAN Bus. 'Virtual CAN Bus' for a virtual CAN Bus.
         :param interface: The interface of the CAN. 'virtual' for a virtual CAN Bus.
         :param bustype: The bustype. 'virtual' for a virtual CAN Bus.
         :param bitrate: The bitrate of the CAN Bus. Not needed for a virtual CAN.

@@ -4,15 +4,19 @@ from can.interface import Bus
 from util import Mapping, MAX_EXTENDED_CAN_ID, MAX_CAN_ID, BYTE_ORDER
 
 
-def beautifyBytearray(array):
-    raise NotImplementedError()
+def beautifyBytearray(array: bytearray):
+    """
+    Converts a given bytearray into a more readable string representation
+
+    :param array: The bytearray to convert to a string
+    :return: [byte, byte, byte, ...] where byte is a hex
+    number 0x00 - 0xff
+    """
+
+    return f"[{', '.join([str(hex(item)) for item in array])}]"
 
 
-def beautifyCANID(canID):
-    raise NotImplementedError()
-
-
-def logConsole(message: str):
+def _logConsole(message: str):
     """
     Prints a message with a "[CAN]: " prefix
 
@@ -26,13 +30,13 @@ def logConsole(message: str):
 class CANHandler:
     """Handles the communication with a (virtual) CAN Bus"""
 
-    def __init__(self, sendToMQTT, channel="", interface="", bustype="virtual",
+    def __init__(self, sendToMQTT, channel="Virtual CAN Bus", interface="virtual", bustype="virtual",
                  bitrate=500000, mappings: list[Mapping] = None):
         """
         Creates a CANHandler instance.
 
-        :param sendToMQTT: The function which will be called to send a message to MQTT
-        :param channel: The channel of the CAN Bus. Not needed for a virtual CAN.
+        :param sendToMQTT: The function which will be called to send a message to MQTT.
+        :param channel: The channel of the CAN Bus. 'Virtual CAN Bus' for a virtual CAN Bus.
         :param interface: The interface of the CAN. 'virtual' for a virtual CAN Bus.
         :param bustype: The bustype. 'virtual' for a virtual CAN Bus.
         :param bitrate: The bitrate of the CAN Bus. Not needed for a virtual CAN.
@@ -40,7 +44,7 @@ class CANHandler:
         """
 
         if channel is None:
-            channel = ""
+            channel = "Virtual CAN Bus"
 
         if interface is None:
             interface = "virtual"
@@ -54,45 +58,45 @@ class CANHandler:
         if mappings is None:
             mappings = []
 
-        self.sendToMQTT = sendToMQTT
+        self._sendToMQTT = sendToMQTT
         self.mappings = mappings
 
-        logConsole("Opening CAN Bus...")
+        _logConsole("Opening CAN Bus...")
 
-        if bustype == "virtual":
+        if bustype == "virtual" or interface == "virtual" or channel == "Virtual CAN Bus":
             # noinspection PyTypeChecker
-            self.canBus = Bus("Virtual CAN Bus", bustype="virtual", interface="virtual")
+            self._canBus = Bus("Virtual CAN Bus", bustype="virtual", interface="virtual")
         else:
             # noinspection PyTypeChecker
-            self.canBus = Bus(interface=interface, bustype=bustype, channel=channel, bitrate=bitrate)
+            self._canBus = Bus(interface=interface, bustype=bustype, channel=channel, bitrate=bitrate)
 
-        logConsole(f"CAN Bus created: '{self.canBus.channel_info}'")
+        _logConsole(f"CAN Bus created: '{self._canBus.channel_info}'")
 
         # Try to send and receive a message from the CAN
-        logConsole("Trying whether message can be sent and received...")
-        self.canBus.receive_own_messages = True
+        _logConsole("Trying whether message can be sent and received...")
+        self._canBus.receive_own_messages = True
 
-        testMessage = Message(arbitration_id=2**29 - 1, data=[0xff] * 8)
-        self.sendMessage(testMessage.arbitration_id, testMessage.data)
+        testMessage = Message(arbitration_id=MAX_EXTENDED_CAN_ID, data=[0xff] * 8)
+        self._canBus.send(testMessage, 5)
 
-        receivedMessage = self.canBus.recv(5)
+        receivedMessage = self._canBus.recv(5)
         if receivedMessage.arbitration_id == testMessage.arbitration_id and receivedMessage.data == testMessage.data:
-            logConsole("Check successful!")
+            _logConsole("Check successful!")
 
             # Reset
-            self.canBus.receive_own_messages = False
+            self._canBus.receive_own_messages = False
 
-            logConsole("Initializing Listener and Notifier!")
+            _logConsole("Initializing Listener and Notifier!")
 
             # Create a listener for incoming messages
             listener = Listener()
-            listener.on_message_received = self.messageReceived
+            listener.on_message_received = self.__messageReceived
 
-            self.notifier = Notifier(self.canBus, [listener], 0)
+            self.__notifier = Notifier(self._canBus, [listener], 0)
 
-            logConsole("CANHandler initialized!")
+            _logConsole("CANHandler initialized!")
         else:
-            logConsole("Check failed!")
+            _logConsole("Check failed!")
             self.stop()
             exit(1)
 
@@ -104,15 +108,15 @@ class CANHandler:
         """
 
         try:
-            self.notifier.stop()
+            self.__notifier.stop()
         except AttributeError:
             pass
 
-        self.canBus.shutdown()
+        self._canBus.shutdown()
 
-        logConsole("Stopped!")
+        _logConsole("Stopped!")
 
-    def messageReceived(self, canMessage: Message):
+    def __messageReceived(self, canMessage: Message):
         """
         This method is called every time a message was sent to the CAN Bus.
 
@@ -122,20 +126,23 @@ class CANHandler:
 
         canID = canMessage.arbitration_id
 
+        # Extend data to 8 bytes
+        canMessage.data.extend([0 for _ in range(0, 8 - canMessage.dlc)])
+
         # Convert to int
         payload = int.from_bytes(canMessage.data, byteorder=BYTE_ORDER)
 
-        logConsole(f"Received CAN message with ID '{canID}' and data {canMessage.data}!")
+        _logConsole(f"Received CAN message with ID '{hex(canID)}' and data '{beautifyBytearray(canMessage.data)}'!")
 
         try:
             # Get corresponding MQTT topic
             topic = [mapping.mqttTopic for mapping in self.mappings if canID == mapping.canID][0]
 
-            logConsole(f"This message will be forwarded to MQTT-Topic '{topic}' (payload: {payload})!")
+            _logConsole(f"This message will be forwarded to MQTT-Topic '{topic}' (payload: '{payload}')!")
 
-            self.sendToMQTT(topic, payload)
+            self._sendToMQTT(topic, payload)
         except IndexError:
-            logConsole(f"No MQTT-Topic for CAN-ID '{canMessage.arbitration_id}' found!")
+            _logConsole(f"No MQTT-Topic for CAN-ID '{hex(canID)}' found!")
 
     def sendMessage(self, canID: int, payload, timeout: float = 1.0):
         """
@@ -148,19 +155,20 @@ class CANHandler:
         :param timeout: The duration (in s) which will be waited for in order for the message to be delivered.
         :return: Nothing
         :raises ValueError: if any of the given data bytes in the payload exceed the range (0, 256)
+        :raises ValueError: if the CAN-ID is invalid. Maximum allowed ID is 2^29 - 1
         """
 
         if isinstance(payload, list):
             if any([number > 0xff for number in payload]):
                 raise ValueError(
-                    "Invalid integer in payload! Please ensure that each data byte has to be in the range (0, 256)!"
+                    "Invalid integer in payload! Please ensure that each data byte is in the range (0, 256)!"
                 )
 
             payload = bytearray(payload)
 
         if not isinstance(canID, int) or canID > MAX_EXTENDED_CAN_ID:
-            raise ValueError(f"Invalid CAN-ID! The maximum allowed ID is {MAX_EXTENDED_CAN_ID}")
+            raise ValueError(f"Invalid CAN-ID! The maximum allowed ID is {hex(MAX_EXTENDED_CAN_ID)}")
 
-        logConsole(f"Sending message with payload {payload} to CAN-ID '{canID}'.")
+        _logConsole(f"Sending message with payload '{beautifyBytearray(payload)}' to CAN-ID '{hex(canID)}'.")
 
-        self.canBus.send(Message(arbitration_id=canID, data=payload, extended_id=canID > MAX_CAN_ID), timeout)
+        self._canBus.send(Message(arbitration_id=canID, data=payload, extended_id=canID > MAX_CAN_ID), timeout)

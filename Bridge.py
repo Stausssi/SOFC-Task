@@ -10,7 +10,7 @@ from MQTTHandler import MQTTHandler
 from util import MQTTParams, CANParams, Mapping
 
 
-def logConsole(message: str):
+def _logConsole(message: str):
     """
     Prints a message with a "[Bridge]: " prefix
 
@@ -33,30 +33,30 @@ class Bridge:
         :param mappings: A list of mappings between CAN-ID and MQTT-Topic
         """
 
-        logConsole("Initializing Bridge...")
+        _logConsole("Initializing Bridge...")
 
         # Create the MQTTHandler
-        self.mqttHandler = MQTTHandler(
-            self.sendMessageToCAN,
+        self._mqttHandler = MQTTHandler(
+            self._sendMessageToCAN,
             mqttParams.hostname, mqttParams.port, mqttParams.username, mqttParams.password,
             mappings
         )
 
         # Create the CANHandler
-        self.canHandler = CANHandler(
-            self.sendMessageToMQTT,
+        self._canHandler = CANHandler(
+            self._sendMessageToMQTT,
             canParams.channel, canParams.interface, canParams.bustype, canParams.bitrate,
             mappings
         )
 
-        if self.mqttHandler.connect():
-            self.mqttHandler.initHandler()
+        if self._mqttHandler.connect():
+            self._mqttHandler.initHandler()
 
             # Start a thread for the loop of the MQTTHandler
-            self.mqttThread = Thread(target=self.mqttHandler.client.loop_forever)
-            self.mqttThread.start()
+            self.__mqttThread = Thread(target=self._mqttHandler.client.loop_forever)
+            self.__mqttThread.start()
 
-            logConsole("Bridge initialized")
+            _logConsole("Bridge initialized")
 
             Timer(5, self.testConnectivity).start()
 
@@ -68,15 +68,15 @@ class Bridge:
         """
 
         # Stop the MQTTHandler
-        self.mqttHandler.stop()
-        self.mqttThread.join()
+        self._mqttHandler.stop()
+        self.__mqttThread.join()
 
         # Stop the CANHandler
-        self.canHandler.stop()
+        self._canHandler.stop()
 
-        logConsole("Stopped!")
+        _logConsole("Stopped!")
 
-    def sendMessageToCAN(self, canID: int, payload):
+    def _sendMessageToCAN(self, canID: int, payload):
         """
         Common ground to send a message from MQTT to CAN.
 
@@ -86,11 +86,11 @@ class Bridge:
         :return: Nothing
         """
 
-        logConsole("Forwarding from MQTT to CAN.")
+        _logConsole("Forwarding from MQTT to CAN.")
 
-        self.canHandler.sendMessage(canID, payload)
+        self._canHandler.sendMessage(canID, payload)
 
-    def sendMessageToMQTT(self, topic: str, payload):
+    def _sendMessageToMQTT(self, topic: str, payload):
         """
         Common ground to send a message from the CAN to MQTT.
 
@@ -99,9 +99,9 @@ class Bridge:
         :return: Nothing
         """
 
-        logConsole("Forwarding from CAN to MQTT.")
+        _logConsole("Forwarding from CAN to MQTT.")
 
-        self.mqttHandler.publishMessage(topic, payload)
+        self._mqttHandler.publishMessage(topic, payload)
 
     def testConnectivity(self):
         """
@@ -110,8 +110,12 @@ class Bridge:
         :return: Nothing
         """
 
-        logConsole("Testing Connectivity...")
-        logConsole("Starting with messages on the virtual CAN...")
+        print()
+        print("-"*25)
+
+        _logConsole("Testing Connectivity...")
+        print("-" * 10)
+        _logConsole("Starting with messages on the virtual CAN...")
 
         # noinspection PyTypeChecker
         demoCAN = Bus("Virtual CAN Bus", bustype="virtual", interface="virtual")
@@ -130,19 +134,23 @@ class Bridge:
 
         time.sleep(1)
 
-        logConsole("CAN Test done!")
-        logConsole("Now MQTT...")
+        _logConsole("CAN Test done!")
+        print("-" * 10)
+        _logConsole("Now MQTT...")
 
         # Enable the MQTTHandler to receive own messages
-        self.mqttHandler.receiveOwnMessages = True
+        self._mqttHandler.receiveOwnMessages = True
 
-        self.mqttHandler.publishMessage("CAN-1", random.randrange(0, 2**32))
-        self.mqttHandler.publishMessage("CAN-10", random.randrange(0, 2**32))
+        self._mqttHandler.publishMessage("CAN-1", random.randrange(0, 2 ** 32))
+        self._mqttHandler.publishMessage("CAN-10", random.randrange(0, 2 ** 32))
 
         time.sleep(1)
 
-        self.mqttHandler.receiveOwnMessages = False
+        self._mqttHandler.receiveOwnMessages = False
 
-        logConsole("Connectivity test done!")
+        _logConsole("Connectivity test done!")
+
+        print("-" * 25)
+        print()
 
         Timer(5, self.stop).start()
