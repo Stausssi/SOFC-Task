@@ -1,4 +1,9 @@
+import random
 from threading import Thread, Timer
+import time
+
+from can import Message
+from can.interface import Bus
 
 from CANHandler import CANHandler
 from MQTTHandler import MQTTHandler
@@ -40,12 +45,9 @@ class Bridge:
         # Create the CANHandler
         self.canHandler = CANHandler(
             self.sendMessageToMQTT,
-            canParams.channel, canParams.interface, canParams.bustype, canParams.bitrate, canParams.receiveOwnMessages,
+            canParams.channel, canParams.interface, canParams.bustype, canParams.bitrate,
             mappings
         )
-
-        # TODO: Remove this. Just a debugging thing.
-        Timer(5, lambda: self.stop()).start()
 
         if self.mqttHandler.connect():
             self.mqttHandler.initHandler()
@@ -54,10 +56,9 @@ class Bridge:
             self.mqttThread = Thread(target=self.mqttHandler.client.loop_forever)
             self.mqttThread.start()
 
-            for i in range(10):
-                Timer(1, lambda: self.canHandler.sendMessage(2**20, [255, 1, 2, 3])).start()
-
             logConsole("Bridge initialized")
+
+            Timer(5, self.testConnectivity).start()
 
     def stop(self):
         """
@@ -101,3 +102,47 @@ class Bridge:
         logConsole("Forwarding from CAN to MQTT.")
 
         self.mqttHandler.publishMessage(topic, payload)
+
+    def testConnectivity(self):
+        """
+        Creates a new CANHandler to send demo messages to the other CAN.
+
+        :return: Nothing
+        """
+
+        logConsole("Testing Connectivity...")
+        logConsole("Starting with messages on the virtual CAN...")
+
+        # noinspection PyTypeChecker
+        demoCAN = Bus("Virtual CAN Bus", bustype="virtual", interface="virtual")
+
+        # Send random messages
+        demoCAN.send(Message(
+            arbitration_id=1,
+            data=random.randbytes(random.randint(1, 8))
+        ))
+        demoCAN.send(Message(
+            arbitration_id=10,
+            data=random.randbytes(random.randint(1, 8))
+        ))
+
+        demoCAN.shutdown()
+
+        time.sleep(1)
+
+        logConsole("CAN Test done!")
+        logConsole("Now MQTT...")
+
+        # Enable the MQTTHandler to receive own messages
+        self.mqttHandler.receiveOwnMessages = True
+
+        self.mqttHandler.publishMessage("CAN-1", random.randrange(0, 2**32))
+        self.mqttHandler.publishMessage("CAN-10", random.randrange(0, 2**32))
+
+        time.sleep(1)
+
+        self.mqttHandler.receiveOwnMessages = False
+
+        logConsole("Connectivity test done!")
+
+        Timer(5, self.stop).start()

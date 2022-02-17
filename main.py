@@ -18,8 +18,6 @@ def main():
     parser.add_argument("-interface", type=str, help="interface of the CAN Bus. Defaults to 'virtual'")
     parser.add_argument("-bustype", type=str, help="interface of the CAN Bus. Defaults to 'virtual'")
     parser.add_argument("-bitrate", type=int, help="bitrate of the CAN Bus. Defaults to '500000'")
-    parser.add_argument("-receiveOwnMessages", type=bool,
-                        help="Whether the CAN should receive messages send by itself. Defaults to 'True'")
 
     args = parser.parse_args()
 
@@ -38,12 +36,10 @@ def main():
             args.channel,
             args.interface,
             args.bustype,
-            args.bitrate,
-            args.receiveOwnMessages
+            args.bitrate
         ),
         mappings
     )
-
 
 if __name__ == '__main__':
     main()

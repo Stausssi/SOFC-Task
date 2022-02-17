@@ -4,6 +4,14 @@ from can.interface import Bus
 from util import Mapping, MAX_EXTENDED_CAN_ID, MAX_CAN_ID, BYTE_ORDER
 
 
+def beautifyBytearray(array):
+    raise NotImplementedError()
+
+
+def beautifyCANID(canID):
+    raise NotImplementedError()
+
+
 def logConsole(message: str):
     """
     Prints a message with a "[CAN]: " prefix
@@ -19,16 +27,15 @@ class CANHandler:
     """Handles the communication with a (virtual) CAN Bus"""
 
     def __init__(self, sendToMQTT, channel="", interface="", bustype="virtual",
-                 bitrate=500000, receiveOwnMessages=True, mappings: list[Mapping] = None):
+                 bitrate=500000, mappings: list[Mapping] = None):
         """
         Creates a CANHandler instance.
 
         :param sendToMQTT: The function which will be called to send a message to MQTT
         :param channel: The channel of the CAN Bus. Not needed for a virtual CAN.
-        :param interface: The interface of the CAN. Not needed for a virtual CAN.
+        :param interface: The interface of the CAN. 'virtual' for a virtual CAN Bus.
         :param bustype: The bustype. 'virtual' for a virtual CAN Bus.
         :param bitrate: The bitrate of the CAN Bus. Not needed for a virtual CAN.
-        :param receiveOwnMessages: Whether the Bus should receive messages sent by himself.
         :param mappings: A list of CAN-IDs to react to.
         """
 
@@ -36,16 +43,13 @@ class CANHandler:
             channel = ""
 
         if interface is None:
-            interface = ""
+            interface = "virtual"
 
         if bustype is None:
             bustype = "virtual"
 
         if bitrate is None:
             bitrate = 500000
-
-        if receiveOwnMessages is None:
-            receiveOwnMessages = True
 
         if mappings is None:
             mappings = []
@@ -57,11 +61,10 @@ class CANHandler:
 
         if bustype == "virtual":
             # noinspection PyTypeChecker
-            self.canBus = Bus("Virtual CAN Bus", bustype="virtual", receive_own_messages=True)
+            self.canBus = Bus("Virtual CAN Bus", bustype="virtual", interface="virtual")
         else:
             # noinspection PyTypeChecker
-            self.canBus = Bus(interface=interface, bustype=bustype, channel=channel, bitrate=bitrate,
-                              receive_own_messages=receiveOwnMessages)
+            self.canBus = Bus(interface=interface, bustype=bustype, channel=channel, bitrate=bitrate)
 
         logConsole(f"CAN Bus created: '{self.canBus.channel_info}'")
 
@@ -69,15 +72,15 @@ class CANHandler:
         logConsole("Trying whether message can be sent and received...")
         self.canBus.receive_own_messages = True
 
-        testMessage = Message(arbitration_id=1, data=[0xff] * 8)
+        testMessage = Message(arbitration_id=2**29 - 1, data=[0xff] * 8)
         self.sendMessage(testMessage.arbitration_id, testMessage.data)
 
         receivedMessage = self.canBus.recv(5)
         if receivedMessage.arbitration_id == testMessage.arbitration_id and receivedMessage.data == testMessage.data:
             logConsole("Check successful!")
 
-            # Reset to original value
-            self.canBus.receive_own_messages = receiveOwnMessages
+            # Reset
+            self.canBus.receive_own_messages = False
 
             logConsole("Initializing Listener and Notifier!")
 
@@ -122,7 +125,7 @@ class CANHandler:
         # Convert to int
         payload = int.from_bytes(canMessage.data, byteorder=BYTE_ORDER)
 
-        logConsole(f"Received CAN message with ID '{canID}' and data '{payload}' ({list(canMessage.data)})!")
+        logConsole(f"Received CAN message with ID '{canID}' and data {canMessage.data}!")
 
         try:
             # Get corresponding MQTT topic
@@ -157,5 +160,7 @@ class CANHandler:
 
         if not isinstance(canID, int) or canID > MAX_EXTENDED_CAN_ID:
             raise ValueError(f"Invalid CAN-ID! The maximum allowed ID is {MAX_EXTENDED_CAN_ID}")
+
+        logConsole(f"Sending message with payload {payload} to CAN-ID '{canID}'.")
 
         self.canBus.send(Message(arbitration_id=canID, data=payload, extended_id=canID > MAX_CAN_ID), timeout)

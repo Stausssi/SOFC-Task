@@ -52,6 +52,7 @@ class MQTTHandler:
         self.port = port
 
         self.connected = False
+        self.receiveOwnMessages = False
 
         logConsole(f"Trying to connect to MQTT Broker at '{host}:{port}' as '{username}'...")
 
@@ -140,12 +141,12 @@ class MQTTHandler:
 
         logConsole("Stopped!")
 
-    def messageReceived(self, client: Client, userdata, message: MQTTMessage):
+    def messageReceived(self, client: Client, _, message: MQTTMessage):
         """
         This method is called every time a message was sent to one of the topics this MQTT client is subscribed to.
 
         :param client: The MQTT client which sent the message
-        :param userdata: ?
+        :param _: The userdata. Ignored for now.
         :param message: The message
         :return: Nothing
         """
@@ -153,11 +154,11 @@ class MQTTHandler:
         # Only forward message if it was sent by a different client
         try:
             otherClientID = client.client_id.decode('utf-8')
-            if otherClientID != self.client.client_id.decode('utf-8'):
+            if otherClientID != self.client.client_id.decode('utf-8') or self.receiveOwnMessages:
                 topic = message.topic
                 payload = message.payload.decode("utf-8")
 
-                logConsole(f"Client '{otherClientID}' (userdata: {userdata}) sent a message:")
+                logConsole(f"Client '{otherClientID}' sent a message:")
                 print(f"{' ' * 8}- Topic: {topic}")
                 print(f"{' ' * 8}- Payload: {payload}")
 
@@ -188,11 +189,7 @@ class MQTTHandler:
         """
 
         try:
-            logConsole(
-                f"Publishing message with payload '{payload}' from CAN-ID "
-                f"'{[mapping.canID for mapping in self.mappings if mapping.mqttTopic == topic][0]}' "
-                f"to MQTT-Topic '{topic}'"
-            )
+            logConsole(f"Publishing message with payload '{payload}' to MQTT-Topic '{topic}'.")
 
             result = self.client.publish(topic, payload)
 
