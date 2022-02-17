@@ -1,5 +1,8 @@
 import json
 
+MAX_CAN_ID = 2 ** 11 - 1
+MAX_EXTENDED_CAN_ID = 2 ** 29 - 1
+
 
 def parseMappings(mappingFile: str = "mapping.json"):
     """
@@ -15,7 +18,7 @@ def parseMappings(mappingFile: str = "mapping.json"):
     try:
         with open(mappingFile) as file:
             return [
-                Mapping(mapping["CAN-ID"], mapping["MQTT-Topic"]) for mapping in json.load(file)["mappings"]
+                Mapping(int(mapping["CAN-ID"]), mapping["MQTT-Topic"]) for mapping in json.load(file)["mappings"]
             ]
     except FileNotFoundError as e:
         print(f"The given mapping file '{mappingFile}' doesn't exist! {e}")
@@ -24,7 +27,7 @@ def parseMappings(mappingFile: str = "mapping.json"):
 class Mapping:
     """Represents a static data class containing information about a CAN to MQTT mapping"""
 
-    def __init__(self, canID: str, mqttTopic: str):
+    def __init__(self, canID: int, mqttTopic: str):
         """
         Creates a static data class.
 
@@ -70,5 +73,34 @@ class MQTTParams:
 class CANParams:
     """Param container for the CANHandler class"""
 
-    def __init__(self):
-        pass
+    def __init__(self, channel="", interface="", bustype="virtual", bitrate=500000, receiveOwnMessages=True):
+        """
+        Creates a static data class.
+
+        :param channel:
+        :param interface:
+        :param bustype:
+        :param bitrate:
+        :param receiveOwnMessages:
+        """
+
+        if channel is None:
+            channel = ""
+
+        if interface is None:
+            interface = ""
+
+        if bustype is None:
+            bustype = "virtual"
+
+        if bitrate is None:
+            bitrate = 500000
+
+        if receiveOwnMessages is None:
+            receiveOwnMessages = True
+
+        self.channel = channel
+        self.interface = interface
+        self.bustype = bustype
+        self.bitrate = bitrate
+        self.receiveOwnMessages = receiveOwnMessages

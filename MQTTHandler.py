@@ -17,21 +17,18 @@ def logConsole(message: str):
 class MQTTHandler:
     """Handles the communication with the MQTT broker"""
 
-    def __init__(self, sendToCan, host: str = "localhost", port: int = 1883, username: str = "user",
+    def __init__(self, sendToCAN, host: str = "localhost", port: int = 1883, username: str = "user",
                  password: str = "admin", mappings: list[Mapping] = None):
         """
         Creates an MQTT handler.
 
-        :param sendToCan: The function which will be called to send a message to the can
+        :param sendToCAN: The function which will be called to send a message to the can
         :param host: The hostname or IP-address of the MQTT Broker
         :param port: The port of the MQTT Broker
         :param username: The name of the user to login as
         :param password: The password of the given user
         :param mappings: A list of topics to subscribe to
         """
-
-        if mappings is None:
-            mappings = []
 
         if host is None:
             host = "localhost"
@@ -45,8 +42,12 @@ class MQTTHandler:
         if password is None:
             password = "admin"
 
+        if mappings is None:
+            mappings = []
+
+        self.sendToCan = sendToCAN
         self.mappings = mappings
-        self.sendToCan = sendToCan
+
         self.hostname = host
         self.port = port
 
@@ -129,8 +130,9 @@ class MQTTHandler:
         :return: Nothing.
         """
 
-        self.client.disconnect()
         self.client.loop_stop()
+        self.client.disconnect()
+
         logConsole("Stopped!")
 
     def messageReceived(self, client: Client, userdata, message: MQTTMessage):
@@ -154,9 +156,8 @@ class MQTTHandler:
             print(f"{' ' * 8}- Payload: {payload}")
             try:
                 canID = [mapping.canID for mapping in self.mappings if mapping.mqttTopic == topic][0]
-                logConsole(
-                    f"This message will be forwarded to CAN-ID '{canID}'!"
-                )
+
+                logConsole(f"This message will be forwarded to CAN-ID '{canID}'!")
 
                 self.sendToCan(canID, payload)
             except IndexError:

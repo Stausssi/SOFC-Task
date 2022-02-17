@@ -1,11 +1,11 @@
 {
   "mappings": [
     {
-      "CAN-ID": "ABC",
+      "CAN-ID": "1",
       "MQTT-Topic": "CAN-ABC"
     },
     {
-      "CAN-ID": "DEF",
+      "CAN-ID": "10",
       "MQTT-Topic": "CAN-DEF"
     }
   ]

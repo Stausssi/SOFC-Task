@@ -1,5 +1,7 @@
 from threading import Thread, Timer
+from typing import Union
 
+from CANHandler import CANHandler
 from MQTTHandler import MQTTHandler
 from util import MQTTParams, CANParams, Mapping
 
@@ -36,25 +38,27 @@ class Bridge:
             mappings
         )
 
-        # TODO: Create the CANHandler
+        # Create the CANHandler
+        self.canHandler = CANHandler(
+            self.sendMessageToMQTT,
+            canParams.channel, canParams.interface, canParams.bustype, canParams.bitrate, canParams.receiveOwnMessages,
+            mappings
+        )
 
         # TODO: Remove this. Just a debugging thing.
         Timer(5, lambda: self.stop()).start()
 
         if self.mqttHandler.connect():
-            # TODO: connect the CANHandler
-
             self.mqttHandler.initHandler()
-
-            # TODO: Init the CANHandler (if needed)
-
-            logConsole("Bridge initialized")
 
             # Start a thread for the loop of the MQTTHandler
             self.mqttThread = Thread(target=self.mqttHandler.client.loop_forever)
             self.mqttThread.start()
 
-            # TODO: Start a thread for the CANHandler
+            for i in range(10):
+                Timer(1, lambda: self.canHandler.sendMessage(2**20, [255, 1, 2, 3])).start()
+
+            logConsole("Bridge initialized")
 
     def stop(self):
         """
@@ -63,24 +67,27 @@ class Bridge:
         :return: Nothing
         """
 
-        # Wait for the MQTTHandler
+        # Stop the MQTTHandler
         self.mqttHandler.stop()
         self.mqttThread.join()
 
-        # TODO: Wait for the CANHandler
+        # Stop the CANHandler
+        self.canHandler.stop()
+
         logConsole("Stopped!")
 
-    def sendMessageToCAN(self, canID, payload):
+    def sendMessageToCAN(self, canID: int, payload):
         """
-        Common ground to send a message from MQTT to CAN. NOT YET IMPLEMENTED1
+        Common ground to send a message from MQTT to CAN.
 
         :param canID: The CAN-ID the message should be sent on
         :param payload: The payload of the message
+        :type payload: bytearray[int] | list[int]
         :return: Nothing
         """
 
-        logConsole(f"Send to CAN '{canID}' with payload '{payload}'!")
-        raise NotImplementedError("Not yet at least")
+        logConsole("Forwarding from MQTT to CAN.")
+        self.canHandler.sendMessage(canID, payload)
 
     def sendMessageToMQTT(self, topic: str, payload):
         """
@@ -91,4 +98,5 @@ class Bridge:
         :return: Nothing
         """
 
+        logConsole("Forwarding from CAN to MQTT.")
         self.mqttHandler.publishMessage(topic, payload)
