@@ -78,8 +78,8 @@ class MQTTHandler:
         try:
             self.client.connect(self.__hostname, self.__port)
             return True
-        except (ConnectionRefusedError, TimeoutError):
-            _logConsole("Broker refused the connection. Check if it's running!")
+        except (ConnectionRefusedError, TimeoutError, Exception) as e:
+            _logConsole(f"Broker refused the connection. Check if it's running! The exception was: {e}")
             return False
 
     @staticmethod
