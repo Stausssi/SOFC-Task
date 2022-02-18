@@ -1,4 +1,4 @@
-from paho.mqtt.client import Client, MQTTMessage
+from paho.mqtt.client import Client, MQTTMessage, error_string
 
 from util import Mapping, BYTE_ORDER
 
@@ -51,6 +51,8 @@ class MQTTHandler:
         self.__hostname = host
         self.__port = port
 
+        self.connected = False
+        self.abort = False
         self.receiveOwnMessages = False
 
         _logConsole(f"Trying to connect to MQTT Broker at '{host}:{port}' as '{username}'...")
@@ -62,7 +64,9 @@ class MQTTHandler:
         # Add callbacks
         self.client.on_connect_fail = self.__onConnectFail
         self.client.on_connect = self.__onConnect
-        self.client.on_disconnect = lambda _, __, reason: _logConsole(f"Disconnected with reason '{reason}'!")
+        self.client.on_disconnect = lambda _, __, reason: _logConsole(
+            f"Disconnected with reason '{reason}': {error_string(reason)}"
+        )
 
     def connect(self):
         """
@@ -74,7 +78,7 @@ class MQTTHandler:
         try:
             self.client.connect(self.__hostname, self.__port)
             return True
-        except ConnectionRefusedError:
+        except (ConnectionRefusedError, TimeoutError):
             _logConsole("Broker refused the connection. Check if it's running!")
             return False
 
@@ -105,8 +109,7 @@ class MQTTHandler:
 
         self.client.on_message = self.__messageReceived
 
-    @staticmethod
-    def __onConnect(_, __, ___, resultCode: int):
+    def __onConnect(self, _, __, ___, resultCode: int):
         """
         This method is called once the connection to the MQTT Broker is established.
 
@@ -121,9 +124,10 @@ class MQTTHandler:
         match resultCode:
             case 0:
                 _logConsole(f"Successfully connected!")
-            case 5:
-                _logConsole("Invalid authentication!")
-                exit(1)
+                self.connected = True
+            case 5 | 7:
+                _logConsole(f"Connection failed: {error_string(resultCode)}")
+                self.abort = True
             case _:
                 _logConsole(f"Connected with result code '{resultCode}'")
 

@@ -49,16 +49,25 @@ class Bridge:
             mappings
         )
 
-        if self._mqttHandler.connect():
-            self._mqttHandler.initHandler()
-
+        if self._mqttHandler.connect() and not self._canHandler.abort:
             # Start a thread for the loop of the MQTTHandler
             self.__mqttThread = Thread(target=self._mqttHandler.client.loop_forever)
             self.__mqttThread.start()
 
+            # Wait for the MQTT Handler to connect
+            while not self._mqttHandler.connected:
+                time.sleep(0.1)
+
+                if self._mqttHandler.abort:
+                    self.stop()
+
+            self._mqttHandler.initHandler()
+
             _logConsole("Bridge initialized")
 
             Timer(5, self.testConnectivity).start()
+        else:
+            self.stop()
 
     def stop(self):
         """
@@ -69,12 +78,17 @@ class Bridge:
 
         # Stop the MQTTHandler
         self._mqttHandler.stop()
-        self.__mqttThread.join()
+        try:
+            self.__mqttThread.join()
+        except AttributeError:
+            pass
 
         # Stop the CANHandler
         self._canHandler.stop()
 
         _logConsole("Stopped!")
+
+        exit(0)
 
     def _sendMessageToCAN(self, canID: int, payload):
         """

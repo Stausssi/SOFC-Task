@@ -61,6 +61,8 @@ class CANHandler:
         self._sendToMQTT = sendToMQTT
         self.mappings = mappings
 
+        self.abort = False
+
         _logConsole("Opening CAN Bus...")
 
         if bustype == "virtual" or interface == "virtual" or channel == "Virtual CAN Bus":
@@ -73,7 +75,7 @@ class CANHandler:
         _logConsole(f"CAN Bus created: '{self._canBus.channel_info}'")
 
         # Try to send and receive a message from the CAN
-        _logConsole("Trying whether message can be sent and received...")
+        _logConsole("Checking whether message can be sent and received...")
         self._canBus.receive_own_messages = True
 
         testMessage = Message(arbitration_id=MAX_EXTENDED_CAN_ID, data=[0xff] * 8)
@@ -97,8 +99,7 @@ class CANHandler:
             _logConsole("CANHandler initialized!")
         else:
             _logConsole("Check failed!")
-            self.stop()
-            exit(1)
+            self.abort = True
 
     def stop(self):
         """
