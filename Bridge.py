@@ -120,7 +120,9 @@ class Bridge:
 
     def testConnectivity(self):
         """
-        Creates a new CANHandler to send demo messages to the other CAN.
+        Creates a new CANHandler to send demo messages to the other CAN. These message should then be forwarded to the
+        MQTT Broker.
+        Afterwards, the MQTTHandler send messages to itself, which should be forwarded to the CAN Bus.
 
         :return: Nothing
         """
