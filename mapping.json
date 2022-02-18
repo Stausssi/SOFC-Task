@@ -5,7 +5,7 @@
       "MQTT-Topic": "CAN-1"
     },
     {
-      "CAN-ID": "0xAf",
+      "CAN-ID": "0xA",
       "MQTT-Topic": "CAN-10"
     }
   ]
