@@ -1,6 +1,6 @@
 import random
-from threading import Thread, Timer
 import time
+from threading import Thread
 
 from can import Message
 from can.interface import Bus
