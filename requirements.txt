@@ -1,6 +1,2 @@
 paho-mqtt==1.6.1
-pip==22.0.3
-setuptools==60.9.2
-socketcan==1.1.0
-wheel==0.37.1
 python-can~=3.3.4
