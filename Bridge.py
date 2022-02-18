@@ -63,10 +63,10 @@ class Bridge:
 
             self._mqttHandler.initHandler()
 
-            _logConsole("Bridge initialized")
+            _logConsole("Bridge initialized!")
 
             # Test whether the connections are working
-            Timer(5, self.testConnectivity).start()
+            self.testConnectivity()
         else:
             self.stop()
 
@@ -127,7 +127,6 @@ class Bridge:
 
         print()
         print("-"*25)
-
         _logConsole("Testing Connectivity...")
         print("-" * 10)
         _logConsole("Starting with messages on the virtual CAN...")
@@ -163,7 +162,7 @@ class Bridge:
 
         self._mqttHandler.receiveOwnMessages = False
 
+        print("-" * 10)
         _logConsole("Connectivity test done!")
-
         print("-" * 25)
         print()
