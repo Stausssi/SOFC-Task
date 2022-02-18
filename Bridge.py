@@ -65,6 +65,7 @@ class Bridge:
 
             _logConsole("Bridge initialized")
 
+            # Test whether the connections are working
             Timer(5, self.testConnectivity).start()
         else:
             self.stop()
@@ -166,5 +167,3 @@ class Bridge:
 
         print("-" * 25)
         print()
-
-        Timer(5, self.stop).start()
