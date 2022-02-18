@@ -33,7 +33,13 @@ class Bridge:
         :param mappings: A list of mappings between CAN-ID and MQTT-Topic
         """
 
+        if len(mappings) <= 0:
+            _logConsole("Running this with no mapping is useless! Check the mapping file contents!")
+            return
+
         _logConsole("Initializing Bridge...")
+
+        self.mappings = mappings
 
         # Create the MQTTHandler
         self._mqttHandler = MQTTHandler(
@@ -136,15 +142,12 @@ class Bridge:
         # noinspection PyTypeChecker
         demoCAN = Bus("Virtual CAN Bus", bustype="virtual", interface="virtual")
 
-        # Send random messages
-        demoCAN.send(Message(
-            arbitration_id=1,
-            data=random.randbytes(random.randint(1, 8))
-        ))
-        demoCAN.send(Message(
-            arbitration_id=10,
-            data=random.randbytes(random.randint(1, 8))
-        ))
+        # Send random messages to all canIDs
+        for canID in [mapping.canID for mapping in self.mappings]:
+            demoCAN.send(Message(
+                arbitration_id=canID,
+                data=random.randbytes(random.randint(1, 8))
+            ))
 
         demoCAN.shutdown()
 
@@ -157,9 +160,11 @@ class Bridge:
         # Enable the MQTTHandler to receive own messages
         self._mqttHandler.receiveOwnMessages = True
 
-        self._mqttHandler.publishMessage("CAN-1", random.randrange(0, 2 ** 32))
-        self._mqttHandler.publishMessage("CAN-10", random.randrange(0, 2 ** 32))
+        # Send random messages to all topics
+        for topic in [mapping.mqttTopic for mapping in self.mappings]:
+            self._mqttHandler.publishMessage(topic, random.randrange(0, 2 ** 32))
 
+        # Wait for the messages to be received
         time.sleep(1)
 
         self._mqttHandler.receiveOwnMessages = False
