@@ -1,2 +1,2 @@
-paho-mqtt==1.6.1
+paho-mqtt~=1.6.1
 python-can~=3.3.4

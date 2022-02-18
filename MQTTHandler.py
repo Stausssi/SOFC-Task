@@ -154,10 +154,11 @@ class MQTTHandler:
         :return: Nothing
         """
 
-        # Only forward message if it was sent by a different client
         try:
-            otherClientID = client.client_id.decode('utf-8')
-            if otherClientID != self.client.client_id.decode('utf-8') or self.receiveOwnMessages:
+            # Only forward message if it was sent by a different client
+            # There is no way other than accessing the protected class member
+            otherClientID = client._client_id.decode('utf-8')
+            if otherClientID != self.client._client_id.decode('utf-8') or self.receiveOwnMessages:
                 topic = message.topic
                 payload = message.payload.decode("utf-8")
 

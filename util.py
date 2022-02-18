@@ -19,7 +19,11 @@ def parseMappings(mappingFile: str = "mapping.json"):
     try:
         with open(mappingFile) as file:
             return [
-                Mapping(int(mapping["CAN-ID"], base=0), mapping["MQTT-Topic"]) for mapping in json.load(file)["mappings"]
+                Mapping(
+                    int(mapping["CAN-ID"], base=0) if isinstance(mapping["CAN-ID"], str) else mapping["CAN-ID"],
+                    mapping["MQTT-Topic"]
+                )
+                for mapping in json.load(file)["mappings"]
             ]
     except FileNotFoundError as e:
         print(f"The given mapping file '{mappingFile}' doesn't exist! {e}")
@@ -39,6 +43,9 @@ class Mapping:
         :param canID: The ID of the message on the CAN-Bus
         :param mqttTopic: The name of the corresponding MQTT topic
         """
+
+        if canID > MAX_EXTENDED_CAN_ID:
+            raise ValueError(f"The given CAN-ID is greater than the maximum of '{MAX_EXTENDED_CAN_ID}'!")
 
         self.canID = canID
         self.mqttTopic = mqttTopic
