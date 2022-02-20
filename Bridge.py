@@ -69,6 +69,11 @@ class Bridge:
 
             self._mqttHandler.initHandler()
 
+            # Init the abort listener thread
+            self.__listenForAbort = True
+            self.__abortListenerThread = Thread(target=self.__abortListener)
+            self.__abortListenerThread.start()
+
             _logConsole("Bridge initialized!")
 
             # Test whether the connections are working
@@ -76,12 +81,32 @@ class Bridge:
         else:
             self.stop()
 
-    def stop(self):
+    def __abortListener(self):
         """
-        Stops the Bridge and both handlers.
+        Checks if any of the handlers set the abort flag and stop the bridge. The loop can be interrupted by setting
+        __listenForAbort to False.
 
         :return: Nothing
         """
+
+        while self.__listenForAbort:
+            if any([handler.abort for handler in [self._canHandler, self._mqttHandler]]):
+                _logConsole(f"{'MQTT' if self._mqttHandler.abort else 'CAN'} requested abort!")
+                self.stop()
+
+    def stop(self):
+        """
+        Stops the Bridge and the handlers as well as the abort listener.
+
+        :return: Nothing
+        """
+
+        # Stop the abort listener
+        self.__listenForAbort = False
+        try:
+            self.__abortListenerThread.join()
+        except (AttributeError, RuntimeError):
+            pass
 
         # Stop the MQTTHandler
         self._mqttHandler.stop()

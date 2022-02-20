@@ -82,8 +82,7 @@ class MQTTHandler:
             _logConsole(f"Broker refused the connection. Check if it's running! The exception was: {e}")
             return False
 
-    @staticmethod
-    def __onConnectFail(_, __):
+    def __onConnectFail(self, _, __):
         """
         Callback for a connection failure. Exits with 1.
 
@@ -93,7 +92,7 @@ class MQTTHandler:
         """
 
         _logConsole("Failed to connect to broker!")
-        exit(1)
+        self.abort = True
 
     def initHandler(self):
         """
